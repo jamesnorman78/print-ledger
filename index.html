@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Print Ledger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='6' fill='none' stroke='%230b7a83' stroke-width='3'/%3E%3Cpath d='M8 11h16M8 16h16M8 21h16' stroke='%230b7a83' stroke-width='2.5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+/* Layout: a workshop logbook. Sticky toolbar over a build-plate grid; models as spec cards; detail splits gallery / spec sheet. */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --sunk:#e3e8eb; --line:#cfd6db; --fg:#14202a; --muted:#5a6873;
+  --accent:#0b7a83; --accent-ink:#ffffff; --accent-soft:#d5ecee; --warm:#b4600d; --warm-soft:#f6e6d3;
+  --danger:#b3261e; --danger-soft:#f8dcd9; --grid:rgba(20,32,42,.05);
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161b; --surface:#172129; --sunk:#111a20; --line:#2a3842; --fg:#e4ebef; --muted:#93a3ae;
+  --accent:#3fc1c9; --accent-ink:#06262a; --accent-soft:#143a3e; --warm:#f0a25a; --warm-soft:#3a2a19;
+  --danger:#f2867d; --danger-soft:#3d1d1b; --grid:rgba(228,235,239,.04); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161b; --surface:#172129; --sunk:#111a20; --line:#2a3842; --fg:#e4ebef; --muted:#93a3ae;
+  --accent:#3fc1c9; --accent-ink:#06262a; --accent-soft:#143a3e; --warm:#f0a25a; --warm-soft:#3a2a19;
+  --danger:#f2867d; --danger-soft:#3d1d1b; --grid:rgba(228,235,239,.04); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);font-stretch:88%;letter-spacing:-.01em;text-wrap:balance;margin:0}
+a{color:var(--accent)}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button,.btn{font:inherit;font-weight:600;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:8px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;line-height:1.2}
+button:hover,.btn:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-danger{color:var(--danger)}
+.btn-danger:hover{border-color:var(--danger)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg);margin-right:auto}
+.brand-mark{width:30px;height:30px;border-radius:7px;background:repeating-linear-gradient(0deg,var(--accent) 0 3px,transparent 3px 5px);border:2px solid var(--accent)}
+.brand h1{font-size:21px;font-weight:800;font-stretch:80%;text-transform:uppercase;letter-spacing:.02em}
+nav.tabs{display:flex;gap:4px}
+nav.tabs a{padding:7px 12px;border-radius:8px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px}
+nav.tabs a[aria-current="page"]{background:var(--sunk);color:var(--fg)}
+
+main{padding-block:24px 64px}
+.notice{padding:12px 14px;border-radius:var(--r);background:var(--warm-soft);color:var(--fg);border:1px solid var(--line);margin-bottom:16px;font-size:14px}
+
+/* Library */
+.lib-head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.lib-head h2{font-size:clamp(28px,4vw,40px);font-weight:800;margin-right:auto}
+.stats{display:flex;gap:20px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.stats b{color:var(--fg);font-family:var(--f-mono);font-weight:600;font-size:15px;display:block}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.toolbar input,.toolbar select{flex:1 1 180px}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:90px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cover{aspect-ratio:4/3;background:var(--sunk);position:relative;max-width:100%;overflow:hidden}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover.empty{background:repeating-linear-gradient(0deg,var(--line) 0 1px,var(--sunk) 1px 6px);display:grid;place-items:center}
+.cover.empty span{font-family:var(--f-mono);font-weight:600;color:var(--muted);background:var(--surface);padding:4px 10px;border-radius:6px;border:1px solid var(--line);font-size:13px}
+.card-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card-body h3{font-size:19px;font-weight:700;line-height:1.2}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--sunk);color:var(--muted);font-family:var(--f-mono);letter-spacing:.02em}
+.chip.mat{background:var(--accent-soft);color:var(--accent)}
+.chip.ex{background:var(--warm-soft);color:var(--warm)}
+.card-foot{margin-top:auto;display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:8px;font-size:13px;color:var(--muted)}
+.card-foot .cost{font-family:var(--f-mono);font-weight:600;color:var(--warm);font-size:16px}
+.empty-state{border:2px dashed var(--line);border-radius:var(--r);padding:40px 20px;text-align:center;background:var(--surface);display:grid;gap:10px;justify-items:center}
+.empty-state h3{font-size:22px}
+.empty-state p{color:var(--muted);max-width:46ch;margin:0}
+
+/* Detail */
+.crumbs{margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.detail-head{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px}
+.detail-head h2{font-size:clamp(28px,4.5vw,44px);font-weight:800;margin-right:auto;min-width:0;overflow-wrap:anywhere}
+.detail-head .acts{display:flex;gap:8px;flex-wrap:wrap}
+.detail{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.detail{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.panel h3{font-size:17px;font-weight:700;margin-bottom:12px;font-stretch:95%}
+.stack{display:grid;gap:16px}
+.viewer-tabs{display:flex;gap:4px;margin-bottom:10px}
+.viewer-tabs button{padding:6px 12px;font-size:13px}
+.viewer-tabs button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.stage{aspect-ratio:4/3;background:var(--sunk);border-radius:var(--r);overflow:hidden;position:relative;border:1px solid var(--line);max-width:100%}
+.stage img{width:100%;height:100%;object-fit:contain;display:block}
+.stage canvas{display:block;width:100%;height:100%}
+.stage .msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);padding:20px;font-size:14px}
+.thumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px}
+.thumbs button{padding:0;width:68px;height:68px;flex:0 0 auto;overflow:hidden;border-radius:8px}
+.thumbs button img{width:100%;height:100%;object-fit:cover}
+.thumbs button[aria-pressed="true"]{border:2px solid var(--accent)}
+dl.specs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;margin:0}
+dl.specs div{min-width:0}
+dl.specs dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+dl.specs dd{margin:2px 0 0;font-family:var(--f-mono);font-size:16px;font-weight:600;overflow-wrap:anywhere}
+dl.specs dd small{font-weight:400;color:var(--muted);font-size:12px}
+.cost-table{width:100%;border-collapse:collapse;font-size:14px}
+.cost-table td{padding:7px 0;border-bottom:1px dashed var(--line);vertical-align:top}
+.cost-table td.num{text-align:right;white-space:nowrap;padding-left:12px}
+.cost-table .how{display:block;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.cost-table tr.total td{border-bottom:none;border-top:2px solid var(--fg);padding-top:10px;font-weight:700;font-size:17px}
+.cost-table tr.total td.num{color:var(--warm);font-size:22px}
+.cost-table tr.sell td{color:var(--muted);border-bottom:none;font-size:13px}
+.files{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.files li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);min-width:0}
+.files .ext{font-family:var(--f-mono);font-weight:600;font-size:12px;background:var(--accent);color:var(--accent-ink);padding:3px 7px;border-radius:5px;text-transform:uppercase;flex:0 0 auto}
+.files .fname{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.files .fsize{color:var(--muted);font-size:12px;font-family:var(--f-mono);flex:0 0 auto}
+.prose{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;max-width:68ch}
+.muted{color:var(--muted)}
+.src-link{display:inline-flex;gap:6px;align-items:center;overflow-wrap:anywhere;word-break:break-all}
+
+/* Form */
+form.edit{display:grid;gap:18px;max-width:880px}
+fieldset{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:18px;margin:0;display:grid;gap:14px;min-width:0}
+legend{font-family:var(--f-display);font-weight:700;font-size:17px;padding:0 6px;font-stretch:95%}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.field{display:grid;gap:5px;min-width:0}
+.field label{font-size:13px;font-weight:600}
+.field .hint{font-size:12px;color:var(--muted)}
+.unit{display:flex;align-items:stretch}
+.unit input{border-top-right-radius:0;border-bottom-right-radius:0}
+.unit span{display:grid;place-items:center;padding:0 10px;border:1px solid var(--line);border-left:none;background:var(--sunk);border-radius:0 8px 8px 0;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.unit.pre input{border-radius:0 8px 8px 0}
+.unit.pre span{border-left:1px solid var(--line);border-right:none;border-radius:8px 0 0 8px}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:20px;text-align:center;background:var(--sunk);cursor:pointer;color:var(--muted);font-size:14px}
+.drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--fg)}
+.drop strong{color:var(--fg)}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk);max-width:100%}
+.ph img{width:100%;height:100%;object-fit:cover}
+.ph .bar{position:absolute;inset:auto 0 0;display:flex;justify-content:space-between;padding:4px;background:linear-gradient(transparent,rgba(0,0,0,.55))}
+.ph .bar button{padding:3px 7px;font-size:11px;background:rgba(255,255,255,.92);color:#14202a;border:none}
+.ph .cover-tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent);color:var(--accent-ink);padding:2px 6px;border-radius:4px}
+.uploading{font-size:13px;color:var(--muted);font-family:var(--f-mono)}
+.live-cost{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 14px;background:var(--warm-soft);border-radius:8px;flex-wrap:wrap}
+.live-cost b{font-family:var(--f-mono);color:var(--warm);font-size:22px}
+.form-acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;position:sticky;bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,var(--bg) 30%)}
+.confirm{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:8px;background:var(--danger-soft);border:1px solid var(--danger);margin-bottom:16px}
+.confirm p{margin:0 auto 0 0;font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+.formula{font-family:var(--f-mono);font-size:13px;background:var(--sunk);border-radius:8px;padding:12px 14px;line-height:1.7;overflow-x:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:520px){dl.specs{grid-template-columns:1fr 1fr}.brand h1{font-size:18px}}
+</style>
+<style>
+html{color-scheme:light}
+body{margin:0;min-height:100vh}
+img{max-width:100%}
+[hidden]{display:none!important}
+.backup-acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.authbar{background:var(--warm-soft);border-bottom:1px solid var(--line)}
+.authbar .wrap{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-block:8px;font-size:14px;font-weight:500}
+.authbar span{margin-right:auto}
+.drive-dot{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);font-family:var(--f-mono)}
+.drive-dot i{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.drive-dot.off i{background:var(--warm)}
+.connect{max-width:620px;margin:6vh auto 0;display:grid;gap:16px;text-align:center;justify-items:center}
+.connect h2{font-size:clamp(28px,5vw,42px);font-weight:800}
+.connect p{margin:0;color:var(--muted);max-width:52ch}
+.gbtn{font-size:16px;padding:12px 20px}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:12px;max-width:68ch}
+ol.steps li{padding-left:4px}
+ol.steps code,.codebox{font-family:var(--f-mono);font-size:13px;background:var(--sunk);padding:1px 6px;border-radius:5px;overflow-wrap:anywhere}
+.codebox{display:block;padding:10px 12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><div class="brand-mark" aria-hidden="true"></div><h1>Print Ledger</h1></a>
+    <span class="drive-dot" id="driveDot" hidden><i></i><span>Drive</span></span>
+    <nav class="tabs" aria-label="Main" id="nav">
+      <a href="#" data-nav="library">Models</a>
+      <a href="#costs" data-nav="costs">Cost rates</a>
+      <a href="#backup" data-nav="backup">Drive &amp; backup</a>
+    </nav>
+    <a class="btn btn-primary" href="#new" id="addBtn">+ Add model</a>
+  </div>
+  <div class="authbar" id="authbar" hidden><div class="wrap"><span>Your Google Drive connection has expired. Reconnect to keep saving.</span><button class="btn-primary" id="reconnectBtn">Reconnect</button></div></div>
+</header>
+<main class="wrap" id="app"><p class="muted">Starting…</p></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== Your Google OAuth Client ID =====
+   Paste it between the quotes, e.g. "1234567890-abc123.apps.googleusercontent.com".
+   If you leave it empty, the app asks for it on first launch and remembers it in that browser. */
+const CLIENT_ID = "";
+</script>
+<script>
+(() => {
+"use strict";
+const app = document.getElementById("app");
+const DENSITY = {PLA:1.24,"PLA+":1.24,PETG:1.27,ABS:1.04,ASA:1.07,TPU:1.21,Nylon:1.14,PC:1.20,"Resin":1.10,"Other":1.24};
+const MATERIALS = Object.keys(DENSITY);
+const DEFAULT_RATES = {currency:"$",filamentPerKg:20,printerWatts:150,kwhRate:0.16,wearPerHour:0.25,markupPct:50};
+const SCOPE = "https://www.googleapis.com/auth/drive.file";
+const API = "https://www.googleapis.com/drive/v3/";
+const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+const MIME = {stl:"model/stl", "3mf":"model/3mf", obj:"model/obj"};
+
+let clientId = CLIENT_ID; try { if (!clientId) clientId = localStorage.getItem("pl-client-id") || ""; } catch {}
+let token = null, tokenExp = 0, tokenClient = null, gisReady = false, gisFailed = false;
+let state = "init";           // init | connect | loading | ready | error
+let loadErr = null;
+let ids = {root:null, files:null, photos:null, library:null};
+let models = []; let rates = {...DEFAULT_RATES};
+let viewerCleanup = null;
+let edit = null;
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+const money = v => (rates.currency || "$") + (Number.isFinite(v) ? v.toFixed(2) : "0.00");
+const fmtBytes = b => b < 1024 ? b + " B" : b < 1048576 ? (b/1024).toFixed(1) + " KB" : b < 1073741824 ? (b/1048576).toFixed(1) + " MB" : (b/1073741824).toFixed(2) + " GB";
+const fmtTime = mins => { mins = Math.round(mins); if (!mins) return "—"; const h = Math.floor(mins/60), m = mins%60; return h ? `${h}h ${m}m` : `${m}m`; };
+const extOf = name => (name.split(".").pop() || "").toLowerCase();
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+function filamentMeters(grams, mat, dia){
+  const d = (num(dia) || 1.75) / 10; const area = Math.PI * (d/2) ** 2;
+  const dens = DENSITY[mat] || 1.24; return grams / dens / area / 100;
+}
+function costOf(m){
+  const g = num(m.grams), hours = num(m.printMinutes) / 60;
+  const perKg = m.filamentPerKg !== "" && m.filamentPerKg != null ? num(m.filamentPerKg) : num(rates.filamentPerKg);
+  const filament = g / 1000 * perKg;
+  const kwh = hours * num(rates.printerWatts) / 1000;
+  const electricity = kwh * num(rates.kwhRate);
+  const runtime = hours * num(rates.wearPerHour);
+  const extra = num(m.extraCost);
+  const total = filament + electricity + runtime + extra;
+  return {g, hours, perKg, filament, kwh, electricity, runtime, extra, total, sell: total * (1 + num(rates.markupPct)/100)};
+}
+let toastT;
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3500); }
+const errMsg = e => (e && e.message) || "Something went wrong. Try again.";
+function saveFile(blob, filename){
+  const u = URL.createObjectURL(blob); const a = document.createElement("a");
+  a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 10000);
+}
+async function shrinkImage(file){
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.5 * 1048576) return file;
+  try {
+    const bmp = await createImageBitmap(file); const max = 2048;
+    const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const b = await new Promise(r => c.toBlob(r, "image/jpeg", .86));
+    return b && b.size < file.size ? b : file;
+  } catch { return file; }
+}
+
+/* ---------- Google sign-in ---------- */
+try { const t = JSON.parse(sessionStorage.getItem("pl-token") || "null"); if (t && t.exp > Date.now() + 60000){ token = t.token; tokenExp = t.exp; } } catch {}
+function waitForGIS(){
+  return new Promise(res => {
+    const t0 = Date.now();
+    const tick = () => { if (window.google && google.accounts && google.accounts.oauth2) return res(true); if (Date.now() - t0 > 12000) return res(false); setTimeout(tick, 100); };
+    tick();
+  });
+}
+function setupTokenClient(){
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId, scope: SCOPE,
+    callback: resp => {
+      if (resp.error){ toast(resp.error === "access_denied" ? "Google Drive access wasn't allowed." : "Google sign-in failed: " + resp.error); return; }
+      if (!google.accounts.oauth2.hasGrantedAllScopes(resp, SCOPE)){ toast("Print Ledger needs permission to save files to your Drive. Try again and allow it."); return; }
+      token = resp.access_token; tokenExp = Date.now() + (num(resp.expires_in) || 3600) * 1000;
+      try { sessionStorage.setItem("pl-token", JSON.stringify({token, exp: tokenExp})); } catch {}
+      document.getElementById("authbar").hidden = true;
+      if (state !== "ready") loadLibrary(); else updateDot();
+    },
+    error_callback: err => { if (err && err.type === "popup_closed") return; toast(err && err.type === "popup_failed_to_open" ? "Your browser blocked the Google sign-in window. Allow pop-ups for this site." : "Google sign-in didn't finish."); }
+  });
+}
+function signIn(){ if (tokenClient) tokenClient.requestAccessToken(); }
+function tokenExpired(){ token = null; try { sessionStorage.removeItem("pl-token"); } catch {} document.getElementById("authbar").hidden = state !== "ready"; updateDot(); if (state !== "ready"){ state = "connect"; render(); } }
+setInterval(() => { if (token && tokenExp - Date.now() < 120000) document.getElementById("authbar").hidden = false; }, 30000);
+document.getElementById("reconnectBtn").onclick = () => signIn();
+function updateDot(){ const d = document.getElementById("driveDot"); d.hidden = state !== "ready"; d.classList.toggle("off", !token); d.lastElementChild.textContent = token ? "Saved to Drive" : "Drive offline"; }
+
+/* ---------- Google Drive API ---------- */
+async function api(url, opts = {}, as = "json"){
+  if (!token){ tokenExpired(); throw new Error("Reconnect to Google Drive and try again."); }
+  const r = await fetch(url.startsWith("http") ? url : API + url, {...opts, headers: {Authorization: "Bearer " + token, ...(opts.headers || {})}});
+  if (r.status === 401){ tokenExpired(); throw new Error("Your Google Drive connection expired. Reconnect and try again."); }
+  if (!r.ok){
+    let m = ""; try { m = (await r.json()).error.message; } catch {}
+    if (/quota/i.test(m) && r.status === 403 && /storage/i.test(m)) throw new Error("Your Google Drive is full. Free up space and try again.");
+    if (r.status === 404) throw new Error("A file is missing from your Drive. It may have been deleted there.");
+    throw new Error(m ? "Google Drive: " + m : "Google Drive error " + r.status + ". Try again.");
+  }
+  if (as === "raw") return r;
+  if (as === "blob") return r.blob();
+  return r.status === 204 ? null : r.json();
+}
+const q = s => encodeURIComponent(s);
+function multipartBody(meta, blob, type){
+  const b = "pl" + Math.random().toString(36).slice(2);
+  return {boundary: b, body: new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`, JSON.stringify(meta), `\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`, blob, `\r\n--${b}--`])};
+}
+async function createFolder(name, parent, tag){
+  return api("files?fields=id", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({name, mimeType:"application/vnd.google-apps.folder", parents: parent ? [parent] : undefined, appProperties:{printLedger: tag}})});
+}
+async function createJSON(name, parent, obj, tag){
+  const {boundary, body} = multipartBody({name, parents:[parent], mimeType:"application/json", appProperties:{printLedger: tag}}, new Blob([JSON.stringify(obj)]), "application/json");
+  return api(UPLOAD + "?uploadType=multipart&fields=id", {method:"POST", headers:{"Content-Type":"multipart/related; boundary=" + boundary}, body});
+}
+function uploadBlob(blob, name, parent, type, onProgress){
+  return new Promise(async (resolve, reject) => {
+    try {
+      const meta = {name, parents:[parent], appProperties:{printLedger:"file"}};
+      const init = await api(UPLOAD + "?uploadType=resumable&fields=id", {method:"POST", headers:{"Content-Type":"application/json; charset=UTF-8", "X-Upload-Content-Type": type}, body: JSON.stringify(meta)}, "raw");
+      const loc = init.headers.get("Location");
+      if (!loc){ // fallback: single request
+        const {boundary, body} = multipartBody(meta, blob, type);
+        const r = await api(UPLOAD + "?uploadType=multipart&fields=id", {method:"POST", headers:{"Content-Type":"multipart/related; boundary=" + boundary}, body});
+        return resolve(r.id);
+      }
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", loc); xhr.setRequestHeader("Content-Type", type);
+      xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100)); };
+      xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300){ try { resolve(JSON.parse(xhr.responseText).id); } catch { reject(new Error("Upload finished but Google Drive gave an unexpected answer.")); } } else if (xhr.status === 401){ tokenExpired(); reject(new Error("Your Google Drive connection expired. Reconnect and try again.")); } else reject(new Error("Upload to Google Drive failed (" + xhr.status + ")."));};
+      xhr.onerror = () => reject(new Error("Upload to Google Drive failed. Check your internet connection."));
+      xhr.send(blob);
+    } catch(e){ reject(e); }
+  });
+}
+async function trashFiles(list){ for (const id of list){ try { await api("files/" + id + "?fields=id", {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({trashed:true})}); forget(id); } catch {} } }
+
+/* Local cache of photos and files so they open fast. Only a speed-up: the real copies are in Drive. */
+let cacheDB = null;
+function openCache(){ return new Promise(res => { try { const r = indexedDB.open("print-ledger-cache", 1); r.onupgradeneeded = () => r.result.createObjectStore("blobs"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch { res(null); } }); }
+function cacheOp(mode, fn){ return new Promise(res => { if (!cacheDB) return res(undefined); try { const t = cacheDB.transaction("blobs", mode); const req = fn(t.objectStore("blobs")); t.oncomplete = () => res(req && req.result); t.onerror = () => res(undefined); } catch { res(undefined); } }); }
+const memURL = new Map(), memBlob = new Map();
+async function getBlob(id){
+  if (memBlob.has(id)) return memBlob.get(id);
+  let b = await cacheOp("readonly", s => s.get(id));
+  if (!b){ b = await api("files/" + id + "?alt=media", {}, "blob"); if (b.size < 40 * 1048576) cacheOp("readwrite", s => s.put(b, id)); }
+  if (b.size < 15 * 1048576) memBlob.set(id, b);
+  return b;
+}
+async function blobURL(id){ if (memURL.has(id)) return memURL.get(id); const u = URL.createObjectURL(await getBlob(id)); memURL.set(id, u); return u; }
+function remember(id, blob){ memBlob.set(id, blob); if (blob.size < 40 * 1048576) cacheOp("readwrite", s => s.put(blob, id)); }
+function forget(id){ memBlob.delete(id); const u = memURL.get(id); if (u){ URL.revokeObjectURL(u); memURL.delete(id); } cacheOp("readwrite", s => s.delete(id)); }
+function hydrate(root){ root.querySelectorAll("img[data-blob]").forEach(async img => { try { img.src = await blobURL(img.dataset.blob); } catch { img.alt = "Photo couldn't load"; } }); }
+function blobIdsOf(m){ return [...(m.photos||[]).map(p => p.id), ...(m.files||[]).map(f => f.id)]; }
+
+/* The library (models + cost rates) is one file, library.json, in your Drive's "Print Ledger" folder. */
+async function findTagged(){
+  const tags = ["root","files","photos","library"];
+  const query = "trashed=false and (" + tags.map(t => `appProperties has { key='printLedger' and value='${t}' }`).join(" or ") + ")";
+  const r = await api(`files?q=${q(query)}&fields=files(id,appProperties,createdTime)&orderBy=createdTime&pageSize=50&spaces=drive`);
+  const found = {};
+  for (const f of r.files || []){ const t = f.appProperties && f.appProperties.printLedger; if (t && !found[t]) found[t] = f.id; }
+  return found;
+}
+async function readLibrary(){ return api("files/" + ids.library + "?alt=media"); }
+async function writeLibrary(lib){
+  await api(UPLOAD + "/" + ids.library + "?uploadType=media&fields=id", {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify(lib)});
+}
+function applyLib(lib){
+  rates = {...DEFAULT_RATES, ...(lib.rates || {})};
+  models = (lib.models || []).slice().sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+let writeChain = Promise.resolve();
+/* Every change re-reads the newest library.json first, so edits made on another device aren't overwritten. */
+function mutate(fn){
+  const p = writeChain.then(async () => { const lib = await readLibrary(); if (!Array.isArray(lib.models)) lib.models = []; fn(lib); await writeLibrary(lib); applyLib(lib); });
+  writeChain = p.catch(() => {});
+  return p;
+}
+async function loadLibrary(){
+  state = "loading"; render();
+  try {
+    if (!cacheDB) cacheDB = await openCache();
+    const f = await findTagged();
+    ids.root = f.root || (await createFolder("Print Ledger", null, "root")).id;
+    ids.files = f.files || (await createFolder("Model files", ids.root, "files")).id;
+    ids.photos = f.photos || (await createFolder("Photos", ids.root, "photos")).id;
+    ids.library = f.library || (await createJSON("library.json", ids.root, {app:"print-ledger", version:2, rates: DEFAULT_RATES, models: []}, "library")).id;
+    applyLib(await readLibrary());
+    state = "ready";
+  } catch(e){ loadErr = e; state = token ? "error" : "connect"; }
+  render();
+}
+async function refreshLibrary(){ try { applyLib(await readLibrary()); } catch {} }
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && state === "ready" && token){ const r = route(); if (r.view === "library" || r.view === "model"){ await refreshLibrary(); render(); } }
+});
+
+/* ---------- routing ---------- */
+function route(){
+  const h = location.hash.replace(/^#/, "");
+  if (h === "new") return {view:"new"};
+  if (h === "costs") return {view:"costs"};
+  if (h === "backup") return {view:"backup"};
+  let m = h.match(/^model-([A-Za-z0-9_-]+)$/); if (m) return {view:"model", id:m[1]};
+  m = h.match(/^edit-([A-Za-z0-9_-]+)$/); if (m) return {view:"edit", id:m[1]};
+  return {view:"library"};
+}
+window.addEventListener("hashchange", () => { if (edit && edit.dirtyUploads.length && !edit.saved) trashFiles(edit.dirtyUploads); edit = null; render(); window.scrollTo(0,0); });
+
+function render(){
+  if (viewerCleanup){ viewerCleanup(); viewerCleanup = null; }
+  const r = route(); const ready = state === "ready";
+  document.getElementById("nav").hidden = !ready; document.getElementById("addBtn").hidden = !ready;
+  updateDot();
+  document.querySelectorAll("[data-nav]").forEach(a => {
+    const on = (a.dataset.nav === "library" && (r.view === "library" || r.view === "model")) || a.dataset.nav === r.view;
+    if (on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current");
+  });
+  if (!ready) return renderGate();
+  if (r.view === "library") renderLibrary();
+  else if (r.view === "model") renderModel(r.id);
+  else if (r.view === "new") renderEdit(null);
+  else if (r.view === "edit") renderEdit(r.id);
+  else if (r.view === "costs") renderCosts();
+  else if (r.view === "backup") renderBackup();
+  hydrate(app);
+}
+
+/* ---------- first launch: setup + connect ---------- */
+function setupSteps(){
+  const origin = location.origin && location.origin !== "null" ? location.origin : "https://YOUR-NAME.github.io";
+  return `<ol class="steps">
+    <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a>, sign in with the Google account whose Drive you want to use, and create a new project named <b>Print Ledger</b>.</li>
+    <li>Open <b>APIs &amp; Services → Library</b>, search for <b>Google Drive API</b> and click <b>Enable</b>.</li>
+    <li>Open <b>Google Auth Platform</b> (the OAuth consent screen). Click <b>Get started</b>, use app name <b>Print Ledger</b>, pick your email as support email, choose <b>External</b> as the audience, then finish.</li>
+    <li>Under <b>Audience</b>, either add your Gmail address as a <b>test user</b>, or click <b>Publish app</b>. Publishing is fine here: the app only asks for the "files it creates" permission, which Google doesn't require a review for.</li>
+    <li>Under <b>Clients</b>, click <b>Create client</b>. Pick <b>Web application</b>. Under <b>Authorized JavaScript origins</b>, add exactly:<span class="codebox">${esc(origin)}</span></li>
+    <li>Click <b>Create</b>, copy the <b>Client ID</b> (it ends in <code>.apps.googleusercontent.com</code>) and paste it below.</li>
+  </ol>`;
+}
+function renderGate(){
+  if (location.protocol === "file:"){
+    app.innerHTML = `<div class="connect" style="text-align:left;justify-items:start">
+      <h2>Open Print Ledger from its web address</h2>
+      <p>Google only allows Drive sign-in from a website, not from a file opened on your computer. Upload this file to a free host such as GitHub Pages, then open the web address it gives you.</p>
+      <div class="panel" style="width:100%"><h3>Host it on GitHub Pages</h3><ol class="steps">
+        <li>Create a free account at <a href="https://github.com" target="_blank" rel="noopener">github.com</a>, then click <b>New repository</b>. Name it <code>print-ledger</code>, set it to <b>Public</b>, and create it.</li>
+        <li>Click <b>uploading an existing file</b>, drag in this file, rename it to <code>index.html</code>, and click <b>Commit changes</b>.</li>
+        <li>Go to <b>Settings → Pages</b>. Under <b>Branch</b>, choose <code>main</code> and click <b>Save</b>.</li>
+        <li>After a minute, your app is at <code>https://YOUR-NAME.github.io/print-ledger/</code>. Open it and follow the next steps there.</li>
+      </ol></div></div>`;
+    return;
+  }
+  if (!clientId){
+    app.innerHTML = `<div class="connect" style="text-align:left;justify-items:start">
+      <h2>One-time setup</h2>
+      <p>Print Ledger needs a Google "Client ID" so it can save to your Drive. It's free and takes about 10 minutes. You only do this once.</p>
+      <div class="panel" style="width:100%">${setupSteps()}
+        <form id="cidForm" style="display:grid;gap:8px;margin-top:16px">
+          <label for="cid" style="font-weight:600;font-size:14px">Client ID</label>
+          <input id="cid" placeholder="1234567890-abcdefg.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+          <div><button class="btn-primary" type="submit">Save Client ID</button></div>
+          <span class="muted" style="font-size:13px">To skip this step on every new browser, paste the ID into the <code>CLIENT_ID</code> line near the bottom of index.html.</span>
+        </form></div></div>`;
+    document.getElementById("cidForm").onsubmit = e => {
+      e.preventDefault(); const v = document.getElementById("cid").value.trim();
+      if (!/\.apps\.googleusercontent\.com$/.test(v)){ toast("That doesn't look like a Client ID. It ends in .apps.googleusercontent.com."); return; }
+      clientId = v; try { localStorage.setItem("pl-client-id", v); } catch {}
+      start();
+    };
+    return;
+  }
+  if (state === "loading"){ app.innerHTML = `<div class="connect"><h2>Opening your library</h2><p>Loading Print Ledger from your Google Drive…</p></div>`; return; }
+  if (state === "error"){
+    app.innerHTML = `<div class="connect"><h2>Couldn't open your library</h2><p>${esc(errMsg(loadErr))}</p><button class="btn-primary" id="retry">Try again</button></div>`;
+    document.getElementById("retry").onclick = () => loadLibrary(); return;
+  }
+  if (gisFailed){ app.innerHTML = `<div class="connect"><h2>Google sign-in didn't load</h2><p>Check your internet connection and any ad or script blocker, then reload the page.</p></div>`; return; }
+  if (state === "connect" || !token){
+    app.innerHTML = `<div class="connect">
+      <h2>Your 3D print library, saved in Google Drive</h2>
+      <p>Connect your Google account. Print Ledger keeps everything in a <b>Print Ledger</b> folder in your Drive, so it's the same on every browser and device. It can only see the files it creates.</p>
+      <button class="btn-primary gbtn" id="connectBtn" ${gisReady ? "" : "disabled"}>Connect Google Drive</button>
+      ${loadErr ? `<p style="color:var(--danger)">${esc(errMsg(loadErr))}</p>` : ""}
+      <details style="text-align:left;max-width:560px"><summary class="muted" style="cursor:pointer;font-size:14px">Wrong Client ID or need to change it?</summary>
+        <p style="margin-top:8px">Current ID: <code class="mono" style="font-size:12px;overflow-wrap:anywhere">${esc(clientId)}</code></p>
+        <button style="margin-top:8px" id="resetCid">Enter a different Client ID</button></details>
+    </div>`;
+    const cb = document.getElementById("connectBtn"); if (cb) cb.onclick = signIn;
+    document.getElementById("resetCid").onclick = () => { try { localStorage.removeItem("pl-client-id"); } catch {} clientId = ""; render(); };
+    return;
+  }
+  app.innerHTML = `<p class="muted">Starting…</p>`;
+}
+
+/* ---------- library ---------- */
+let libState = {q:"", mat:"", sort:"new"};
+try { const s = JSON.parse(localStorage.getItem("pl-lib") || "null"); if (s) libState = {...libState, ...s, q:""}; } catch {}
+function renderLibrary(){
+  const totalG = models.reduce((a,m) => a + num(m.grams), 0);
+  const avg = models.length ? models.reduce((a,m) => a + costOf(m).total, 0) / models.length : 0;
+  const mats = [...new Set(models.map(m => m.material).filter(Boolean))].sort();
+  app.innerHTML = `
+    <div class="lib-head">
+      <h2>Model library</h2>
+      <div class="stats">
+        <div><b>${models.length}</b>models</div>
+        <div><b>${(totalG/1000).toFixed(2)} kg</b>filament, one of each</div>
+        <div><b>${money(avg)}</b>avg cost per print</div>
+      </div>
+    </div>
+    ${models.length ? `<div class="toolbar">
+      <input id="q" type="search" placeholder="Search name, tag or notes" value="${esc(libState.q)}" aria-label="Search models">
+      <select id="mat" aria-label="Filter by material"><option value="">All materials</option>${mats.map(x => `<option ${x===libState.mat?"selected":""}>${esc(x)}</option>`).join("")}</select>
+      <select id="sort" aria-label="Sort models">
+        ${[["new","Newest first"],["name","Name A–Z"],["costHi","Highest cost"],["costLo","Lowest cost"],["grams","Most filament"]].map(([v,l]) => `<option value="${v}" ${v===libState.sort?"selected":""}>${l}</option>`).join("")}
+      </select>
+    </div>` : ""}
+    <div id="cards"></div>`;
+  const draw = () => {
+    const qq = libState.q.trim().toLowerCase();
+    let list = models.filter(m => (!libState.mat || m.material === libState.mat) &&
+      (!qq || [m.name, m.description, m.notes, (m.tags||[]).join(" "), m.color].join(" ").toLowerCase().includes(qq)));
+    const s = libState.sort;
+    list.sort((a,b) => s === "name" ? String(a.name).localeCompare(b.name) : s === "costHi" ? costOf(b).total - costOf(a).total
+      : s === "costLo" ? costOf(a).total - costOf(b).total : s === "grams" ? num(b.grams) - num(a.grams) : String(b.createdAt).localeCompare(String(a.createdAt)));
+    const el = document.getElementById("cards");
+    if (!models.length){
+      el.innerHTML = `<div class="empty-state"><h3>No models yet</h3><p>Add your first model to track its files, photos, filament use and what one print costs you. Moving over from the offline version? Restore its backup file on the <a href="#backup">Drive &amp; backup</a> page.</p><a class="btn btn-primary" href="#new">+ Add model</a></div>`;
+      return;
+    }
+    if (!list.length){ el.innerHTML = `<div class="empty-state"><h3>No matches</h3><p>No models match that search. Clear the search or pick another material.</p></div>`; return; }
+    el.innerHTML = `<div class="grid">${list.map(card).join("")}</div>`;
+    hydrate(el);
+  };
+  const save = () => { try { localStorage.setItem("pl-lib", JSON.stringify({mat:libState.mat, sort:libState.sort})); } catch {} };
+  const qi = document.getElementById("q");
+  if (qi){
+    qi.addEventListener("input", e => { libState.q = e.target.value; draw(); });
+    document.getElementById("mat").addEventListener("change", e => { libState.mat = e.target.value; save(); draw(); });
+    document.getElementById("sort").addEventListener("change", e => { libState.sort = e.target.value; save(); draw(); });
+  }
+  draw();
+}
+function card(m){
+  const c = costOf(m); const cover = (m.photos||[])[0];
+  const exts = [...new Set((m.files||[]).map(f => f.ext))];
+  return `<a class="card" href="#model-${esc(m.id)}">
+    ${cover ? `<div class="cover"><img data-blob="${esc(cover.id)}" alt=""></div>`
+      : `<div class="cover empty"><span>${exts.length ? exts.map(e => "." + esc(e)).join(" ") : "no photo"}</span></div>`}
+    <div class="card-body">
+      <h3>${esc(m.name || "Untitled model")}</h3>
+      <div class="chips">
+        ${m.material ? `<span class="chip mat">${esc(m.material)}</span>` : ""}
+        ${exts.map(e => `<span class="chip">.${esc(e)}</span>`).join("")}
+      </div>
+      <div class="card-foot"><span class="num">${c.g ? c.g.toFixed(c.g < 10 ? 1 : 0) + " g" : "— g"} · ${fmtTime(num(m.printMinutes))}</span><span class="cost">${money(c.total)}</span></div>
+    </div></a>`;
+}
+
+/* ---------- model detail ---------- */
+function renderModel(id){
+  const m = models.find(x => x.id === id);
+  if (!m){ app.innerHTML = `<div class="empty-state"><h3>Model not found</h3><p>It may have been deleted.</p><a class="btn" href="#">Back to models</a></div>`; return; }
+  const c = costOf(m); const photos = m.photos || []; const files = m.files || [];
+  const previewable = files.find(f => f.ext === "stl" || f.ext === "obj");
+  const meters = c.g ? filamentMeters(c.g, m.material, m.diameter) : 0;
+  let host = ""; try { host = m.sourceUrl ? new URL(m.sourceUrl).hostname.replace(/^www\./,"") : ""; } catch { host = m.sourceUrl; }
+  app.innerHTML = `
+    <div class="crumbs"><a class="btn btn-ghost" href="#">← All models</a></div>
+    <div id="confirmSlot"></div>
+    <div class="detail-head">
+      <h2>${esc(m.name || "Untitled model")}</h2>
+      <div class="acts"><a class="btn" href="#edit-${esc(m.id)}">Edit</a><button class="btn-danger" id="delBtn">Delete</button></div>
+    </div>
+    <div class="detail">
+      <div class="stack">
+        <div>
+          <div class="viewer-tabs" role="group" aria-label="View">
+            <button id="tabPhotos" aria-pressed="true">Photos (${photos.length})</button>
+            <button id="tab3d" aria-pressed="false" ${previewable ? "" : "disabled title=\"3D preview works for STL and OBJ files\""}>3D preview</button>
+          </div>
+          <div class="stage" id="stage"></div>
+          <div class="thumbs" id="thumbs"></div>
+        </div>
+        ${m.description ? `<div class="panel"><h3>About this model</h3><p class="prose">${esc(m.description)}</p></div>` : ""}
+        ${m.notes ? `<div class="panel"><h3>Print notes</h3><p class="prose">${esc(m.notes)}</p></div>` : ""}
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <dl class="specs">
+            <div><dt>Filament</dt><dd>${c.g ? c.g.toFixed(1) + " g" : "—"}${meters ? ` <small>≈ ${meters.toFixed(1)} m</small>` : ""}</dd></div>
+            <div><dt>Print time</dt><dd>${fmtTime(num(m.printMinutes))}</dd></div>
+            <div><dt>Material</dt><dd>${esc(m.material || "—")}${m.color ? ` <small>${esc(m.color)}</small>` : ""}</dd></div>
+            <div><dt>Layer · infill</dt><dd>${m.layerHeight ? esc(m.layerHeight) + " mm" : "—"} · ${m.infill !== "" && m.infill != null ? esc(m.infill) + "%" : "—"}</dd></div>
+            ${m.tags && m.tags.length ? `<div style="grid-column:1/-1"><dt>Tags</dt><dd class="chips" style="margin-top:6px">${m.tags.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</dd></div>` : ""}
+            <div style="grid-column:1/-1"><dt>Source</dt><dd style="font-family:var(--f-body);font-size:15px;font-weight:500">${m.sourceUrl ? `<a class="src-link" href="${esc(m.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(host)} ↗</a>` : `<span class="muted">No link added</span>`}</dd></div>
+          </dl>
+        </div>
+        <div class="panel">
+          <h3>Cost to print one</h3>
+          <table class="cost-table">
+            <tr><td>Filament<span class="how">${c.g.toFixed(1)} g × ${money(c.perKg)}/kg</span></td><td class="num">${money(c.filament)}</td></tr>
+            <tr><td>Electricity<span class="how">${c.kwh.toFixed(2)} kWh × ${money(num(rates.kwhRate))}/kWh</span></td><td class="num">${money(c.electricity)}</td></tr>
+            <tr><td>Printer runtime<span class="how">${c.hours.toFixed(2)} h × ${money(num(rates.wearPerHour))}/h</span></td><td class="num">${money(c.runtime)}</td></tr>
+            ${c.extra ? `<tr><td>Extras<span class="how">${esc(m.extraLabel || "hardware, paint, etc.")}</span></td><td class="num">${money(c.extra)}</td></tr>` : ""}
+            <tr class="total"><td>Total per print</td><td class="num">${money(c.total)}</td></tr>
+            <tr class="sell"><td>Suggested price at ${num(rates.markupPct)}% markup</td><td class="num">${money(c.sell)}</td></tr>
+          </table>
+          <p class="muted" style="font-size:12px;margin:10px 0 0">Rates come from <a href="#costs">Cost rates</a>${m.filamentPerKg !== "" && m.filamentPerKg != null ? "; this model uses its own filament price" : ""}.</p>
+        </div>
+        <div class="panel">
+          <h3>Model files</h3>
+          ${files.length ? `<ul class="files">${files.map((f,i) => `<li><span class="ext">${esc(f.ext)}</span><span class="fname" title="${esc(f.name)}">${esc(f.name)}</span><span class="fsize">${fmtBytes(f.size||0)}</span><button data-dl="${i}">Download</button></li>`).join("")}</ul>` : `<p class="muted" style="margin:0">No files attached.</p>`}
+        </div>
+        <p class="muted" style="font-size:12px;margin:0">Added ${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "—"}${m.updatedAt && m.updatedAt !== m.createdAt ? " · updated " + new Date(m.updatedAt).toLocaleDateString() : ""}</p>
+      </div>
+    </div>`;
+
+  const stage = document.getElementById("stage"), thumbs = document.getElementById("thumbs");
+  let cur = 0;
+  const showPhoto = i => {
+    if (viewerCleanup){ viewerCleanup(); viewerCleanup = null; }
+    cur = i; thumbs.hidden = photos.length < 2;
+    stage.innerHTML = photos.length ? `<img data-blob="${esc(photos[i].id)}" alt="Photo ${i+1} of ${esc(m.name)}">` : `<div class="msg">No photos yet.${previewable ? " Try the 3D preview." : ""}</div>`;
+    thumbs.innerHTML = photos.map((p,j) => `<button aria-pressed="${j===i}" data-i="${j}" aria-label="Photo ${j+1}"><img data-blob="${esc(p.id)}" alt=""></button>`).join("");
+    hydrate(stage); hydrate(thumbs);
+  };
+  thumbs.addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) showPhoto(+b.dataset.i); });
+  const t1 = document.getElementById("tabPhotos"), t2 = document.getElementById("tab3d");
+  t1.onclick = () => { t1.setAttribute("aria-pressed","true"); t2.setAttribute("aria-pressed","false"); showPhoto(cur); };
+  t2.onclick = () => { t2.setAttribute("aria-pressed","true"); t1.setAttribute("aria-pressed","false"); thumbs.hidden = true; show3D(stage, previewable); };
+  if (photos.length || !previewable) showPhoto(0); else t2.onclick();
+
+  app.querySelectorAll("[data-dl]").forEach(b => b.onclick = async () => {
+    const f = files[+b.dataset.dl]; b.disabled = true; b.textContent = "Downloading…";
+    try { saveFile(await getBlob(f.id), f.name); } catch(e){ toast(errMsg(e)); }
+    b.disabled = false; b.textContent = "Download";
+  });
+
+  document.getElementById("delBtn").onclick = () => {
+    const slot = document.getElementById("confirmSlot");
+    slot.innerHTML = `<div class="confirm"><p>Delete “${esc(m.name)}”? Its files and photos move to your Google Drive trash.</p><button id="noDel">Keep it</button><button class="btn-primary" style="background:var(--danger);border-color:var(--danger)" id="yesDel">Delete model</button></div>`;
+    slot.scrollIntoView({block:"nearest"});
+    document.getElementById("noDel").onclick = () => slot.innerHTML = "";
+    document.getElementById("yesDel").onclick = async ev => {
+      ev.target.disabled = true; ev.target.textContent = "Deleting…";
+      try { await mutate(lib => { lib.models = lib.models.filter(x => x.id !== m.id); }); trashFiles(blobIdsOf(m)); toast("Model deleted"); location.hash = ""; }
+      catch(e){ toast(errMsg(e)); ev.target.disabled = false; ev.target.textContent = "Delete model"; }
+    };
+  };
+}
+
+/* ---------- 3D preview (built-in WebGL viewer, works offline) ---------- */
+function parseSTL(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length >= 84 && 84 + dv.getUint32(80, true) * 50 === bytes.length){
+    const n = dv.getUint32(80, true); const pos = new Float32Array(n * 9);
+    for (let i = 0; i < n; i++){ const o = 84 + i * 50 + 12; for (let k = 0; k < 9; k++) pos[i*9+k] = dv.getFloat32(o + k*4, true); }
+    return pos;
+  }
+  const text = new TextDecoder().decode(bytes); const out = [];
+  const re = /vertex\s+([-+\d.eE]+)\s+([-+\d.eE]+)\s+([-+\d.eE]+)/g; let mm;
+  while ((mm = re.exec(text))) out.push(+mm[1], +mm[2], +mm[3]);
+  return new Float32Array(out);
+}
+function parseOBJ(bytes){
+  const text = new TextDecoder().decode(bytes); const v = []; const out = [];
+  for (const line of text.split("\n")){
+    const p = line.trim().split(/\s+/);
+    if (p[0] === "v") v.push([+p[1], +p[2], +p[3]]);
+    else if (p[0] === "f"){
+      const idx = p.slice(1).map(s => { const i = parseInt(s.split("/")[0], 10); return i < 0 ? v.length + i : i - 1; });
+      for (let k = 1; k < idx.length - 1; k++) for (const i of [idx[0], idx[k], idx[k+1]]) { const q = v[i] || [0,0,0]; out.push(q[0], q[1], q[2]); }
+    }
+  }
+  return new Float32Array(out);
+}
+function hexRGB(h, fb){ h = (h || "").trim().replace("#",""); if (h.length === 3) h = h.split("").map(c => c+c).join(""); if (!/^[0-9a-f]{6}$/i.test(h)) return fb; return [0,2,4].map(i => parseInt(h.slice(i,i+2),16)/255); }
+const M = {
+  persp(fy, a, n, f){ const t = 1/Math.tan(fy/2); return [t/a,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; },
+  look(e, c, u){
+    const sub = (a,b) => [a[0]-b[0],a[1]-b[1],a[2]-b[2]], cr = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+    const nrm = a => { const l = Math.hypot(...a) || 1; return a.map(x => x/l); }, dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    const z = nrm(sub(e,c)), x = nrm(cr(u,z)), y = cr(z,x);
+    return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -dot(x,e),-dot(y,e),-dot(z,e),1];
+  },
+  mul(a, b){ const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+r]*b[c*4+k]; o[c*4+r] = s; } return o; }
+};
+async function show3D(stage, f){
+  if (viewerCleanup){ viewerCleanup(); viewerCleanup = null; }
+  stage.innerHTML = `<div class="msg">Loading ${esc(f.name)}…</div>`;
+  let pos;
+  try { const blob = await getBlob(f.id); const bytes = new Uint8Array(await blob.arrayBuffer()); pos = f.ext === "stl" ? parseSTL(bytes) : parseOBJ(bytes); }
+  catch { stage.innerHTML = `<div class="msg">Couldn't read ${esc(f.name)} for preview.</div>`; return; }
+  if (!pos.length){ stage.innerHTML = `<div class="msg">No geometry found in ${esc(f.name)}.</div>`; return; }
+  if (!stage.isConnected) return;
+  // STL files are Z-up; turn them Y-up. Then sit the model on the plate, centered.
+  if (f.ext === "stl") for (let i = 0; i < pos.length; i += 3){ const y = pos[i+1]; pos[i+1] = pos[i+2]; pos[i+2] = -y; }
+  const mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
+  for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++){ const v = pos[i+k]; if (v < mn[k]) mn[k] = v; if (v > mx[k]) mx[k] = v; }
+  const off = [-(mn[0]+mx[0])/2, -mn[1], -(mn[2]+mx[2])/2];
+  for (let i = 0; i < pos.length; i += 3){ pos[i] += off[0]; pos[i+1] += off[1]; pos[i+2] += off[2]; }
+  const size = [mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]]; const r = Math.max(...size) || 1;
+  const nor = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length; i += 9){
+    const ax = pos[i+3]-pos[i], ay = pos[i+4]-pos[i+1], az = pos[i+5]-pos[i+2], bx = pos[i+6]-pos[i], by = pos[i+7]-pos[i+1], bz = pos[i+8]-pos[i+2];
+    let nx = ay*bz-az*by, ny = az*bx-ax*bz, nz = ax*by-ay*bx; const l = Math.hypot(nx,ny,nz) || 1; nx/=l; ny/=l; nz/=l;
+    for (let k = 0; k < 9; k += 3){ nor[i+k] = nx; nor[i+k+1] = ny; nor[i+k+2] = nz; }
+  }
+  const half = r, steps = 20, gl_ = [];
+  for (let i = 0; i <= steps; i++){ const t = -half + 2*half*i/steps; gl_.push(t,0,-half, t,0,half, -half,0,t, half,0,t); }
+  const grid = new Float32Array(gl_);
+
+  stage.innerHTML = "";
+  const canvas = document.createElement("canvas"); stage.appendChild(canvas);
+  const gl = canvas.getContext("webgl", {antialias:true, alpha:true});
+  if (!gl){ stage.innerHTML = `<div class="msg">Your browser can't show 3D previews.</div>`; return; }
+  if (pos.length / 3 > 65535) gl.getExtension("OES_element_index_uint");
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, "attribute vec3 p;attribute vec3 n;uniform mat4 mvp;varying vec3 vn;void main(){vn=n;gl_Position=mvp*vec4(p,1.0);}"));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, "precision mediump float;varying vec3 vn;uniform vec3 col;uniform float lit;void main(){vec3 N=normalize(vn);if(!gl_FrontFacing)N=-N;float d=.30+max(dot(N,normalize(vec3(.5,1.,.7))),0.)*.65+max(dot(N,normalize(vec3(-.6,.2,-.8))),0.)*.25;gl_FragColor=vec4(mix(col,col*d,lit),1.0);}"));
+  gl.linkProgram(prog); gl.useProgram(prog);
+  const aP = gl.getAttribLocation(prog, "p"), aN = gl.getAttribLocation(prog, "n");
+  const uM = gl.getUniformLocation(prog, "mvp"), uC = gl.getUniformLocation(prog, "col"), uL = gl.getUniformLocation(prog, "lit");
+  const buf = data => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); return b; };
+  const bPos = buf(pos), bNor = buf(nor), bGrid = buf(grid);
+  gl.enable(gl.DEPTH_TEST);
+  const cs = getComputedStyle(document.documentElement);
+  const colModel = hexRGB(cs.getPropertyValue("--accent"), [.04,.48,.51]), colGrid = hexRGB(cs.getPropertyValue("--line"), [.8,.84,.86]);
+
+  let yaw = .7, pitch = .45, dist = r * 3.2, auto = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const target = [0, size[1]/2, 0];
+  const pts = new Map(); let pinch0 = 0;
+  canvas.style.touchAction = "none"; canvas.style.cursor = "grab";
+  canvas.addEventListener("pointerdown", e => { canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); auto = false; if (pts.size === 2){ const [a,b] = [...pts.values()]; pinch0 = Math.hypot(a[0]-b[0], a[1]-b[1]); } });
+  canvas.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1){ yaw -= (e.clientX - prev[0]) * .01; pitch = Math.max(-1.2, Math.min(1.45, pitch + (e.clientY - prev[1]) * .01)); }
+    else if (pts.size === 2){ const [a,b] = [...pts.values()]; const d = Math.hypot(a[0]-b[0], a[1]-b[1]); if (pinch0) dist = Math.max(r*.4, Math.min(r*10, dist * pinch0 / d)); pinch0 = d; }
+  });
+  const up = e => { pts.delete(e.pointerId); pinch0 = 0; };
+  canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("wheel", e => { e.preventDefault(); auto = false; dist = Math.max(r*.4, Math.min(r*10, dist * (e.deltaY > 0 ? 1.1 : 1/1.1))); }, {passive:false});
+
+  let raf;
+  const draw = () => {
+    raf = requestAnimationFrame(draw);
+    const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(stage.clientWidth * dpr), H = Math.round(stage.clientHeight * dpr);
+    if (!W || !H) return;
+    if (canvas.width !== W || canvas.height !== H){ canvas.width = W; canvas.height = H; }
+    gl.viewport(0, 0, W, H); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (auto) yaw += .006;
+    const eye = [target[0] + dist*Math.cos(pitch)*Math.sin(yaw), target[1] + dist*Math.sin(pitch), target[2] + dist*Math.cos(pitch)*Math.cos(yaw)];
+    gl.uniformMatrix4fv(uM, false, new Float32Array(M.mul(M.persp(.7, W/H, r/100, r*50), M.look(eye, target, [0,1,0]))));
+    gl.bindBuffer(gl.ARRAY_BUFFER, bGrid); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(aP);
+    gl.disableVertexAttribArray(aN); gl.vertexAttrib3f(aN, 0, 1, 0);
+    gl.uniform3fv(uC, colGrid); gl.uniform1f(uL, 0); gl.drawArrays(gl.LINES, 0, grid.length/3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bPos); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bNor); gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(aN);
+    gl.uniform3fv(uC, colModel); gl.uniform1f(uL, 1); gl.drawArrays(gl.TRIANGLES, 0, pos.length/3);
+  };
+  draw();
+  const dims = document.createElement("div"); dims.className = "mono";
+  dims.style.cssText = "position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none";
+  dims.textContent = `${size[0].toFixed(1)} × ${size[2].toFixed(1)} × ${size[1].toFixed(1)} mm · drag to rotate, scroll to zoom`;
+  stage.appendChild(dims);
+  viewerCleanup = () => { cancelAnimationFrame(raf); [bPos,bNor,bGrid].forEach(b => gl.deleteBuffer(b)); const lose = gl.getExtension("WEBGL_lose_context"); lose && lose.loseContext(); };
+}
+
+
+/* ---------- add / edit ---------- */
+function renderEdit(id){
+  const existing = id ? models.find(x => x.id === id) : null;
+  if (id && !existing){ app.innerHTML = `<div class="empty-state"><h3>Model not found</h3><a class="btn" href="#">Back to models</a></div>`; return; }
+  if (!edit || edit.id !== (id || "new")){
+    const m = existing || {};
+    edit = { id: id || "new", photos: [...(m.photos||[])], files: [...(m.files||[])], dirtyUploads: [], removed: [], busy: 0, saved:false };
+  }
+  const m = existing || {material:"PLA", diameter:"1.75"};
+  const hrs = Math.floor(num(m.printMinutes)/60), mins = Math.round(num(m.printMinutes)%60);
+  const back = existing ? "#model-" + esc(existing.id) : "#";
+  app.innerHTML = `
+    <div class="crumbs"><a class="btn btn-ghost" href="${back}">← Cancel</a></div>
+    <div class="detail-head"><h2>${existing ? "Edit " + esc(existing.name) : "Add a model"}</h2></div>
+    <form class="edit" id="editForm" novalidate>
+      <fieldset><legend>Basics</legend>
+        <div class="field"><label for="f-name">Model name</label><input id="f-name" name="name" required value="${esc(m.name)}" placeholder="Articulated dragon"></div>
+        <div class="field"><label for="f-src">Source link</label><input id="f-src" name="sourceUrl" type="url" inputmode="url" value="${esc(m.sourceUrl)}" placeholder="https://www.printables.com/model/…"><span class="hint">Where you downloaded it: Printables, Thingiverse, MakerWorld, Cults3D…</span></div>
+        <div class="field"><label for="f-desc">Description</label><textarea id="f-desc" name="description" placeholder="What it is, designer, license…">${esc(m.description)}</textarea></div>
+        <div class="field"><label for="f-tags">Tags</label><input id="f-tags" name="tags" value="${esc((m.tags||[]).join(", "))}" placeholder="gift, functional, cosplay"><span class="hint">Separate with commas.</span></div>
+      </fieldset>
+
+      <fieldset><legend>Print details</legend>
+        <div class="row">
+          <div class="field"><label for="f-grams">Filament used</label><div class="unit"><input id="f-grams" name="grams" type="number" min="0" step="0.1" inputmode="decimal" value="${esc(m.grams)}" placeholder="42.5"><span>g</span></div><span class="hint">From your slicer's estimate.</span></div>
+          <div class="field"><label for="f-h">Print time</label><div class="row" style="grid-template-columns:1fr 1fr;gap:6px">
+            <div class="unit"><input id="f-h" name="hours" type="number" min="0" step="1" inputmode="numeric" value="${m.printMinutes ? hrs : ""}" placeholder="3" aria-label="Hours"><span>h</span></div>
+            <div class="unit"><input id="f-m" name="minutes" type="number" min="0" max="59" step="1" inputmode="numeric" value="${m.printMinutes ? mins : ""}" placeholder="25" aria-label="Minutes"><span>m</span></div></div></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="f-mat">Material</label><select id="f-mat" name="material">${MATERIALS.map(x => `<option ${x===m.material?"selected":""}>${x}</option>`).join("")}</select></div>
+          <div class="field"><label for="f-color">Color / brand</label><input id="f-color" name="color" value="${esc(m.color)}" placeholder="Galaxy Black, Polymaker"></div>
+          <div class="field"><label for="f-dia">Filament diameter</label><select id="f-dia" name="diameter"><option ${m.diameter!=="2.85"?"selected":""}>1.75</option><option ${m.diameter==="2.85"?"selected":""}>2.85</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="f-layer">Layer height</label><div class="unit"><input id="f-layer" name="layerHeight" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(m.layerHeight)}" placeholder="0.20"><span>mm</span></div></div>
+          <div class="field"><label for="f-infill">Infill</label><div class="unit"><input id="f-infill" name="infill" type="number" min="0" max="100" step="1" inputmode="numeric" value="${esc(m.infill)}" placeholder="15"><span>%</span></div></div>
+        </div>
+        <div class="field"><label for="f-notes">Print notes</label><textarea id="f-notes" name="notes" placeholder="Supports, orientation, brim, settings that worked…">${esc(m.notes)}</textarea></div>
+      </fieldset>
+
+      <fieldset><legend>Cost</legend>
+        <div class="row">
+          <div class="field"><label for="f-perkg">Filament price for this model</label><div class="unit pre"><span>${esc(rates.currency)}</span><input id="f-perkg" name="filamentPerKg" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(m.filamentPerKg ?? "")}" placeholder="${num(rates.filamentPerKg).toFixed(2)}"></div><span class="hint">Per kg. Leave blank to use your default (${money(num(rates.filamentPerKg))}/kg).</span></div>
+          <div class="field"><label for="f-extra">Extra costs</label><div class="unit pre"><span>${esc(rates.currency)}</span><input id="f-extra" name="extraCost" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(m.extraCost)}" placeholder="0.00"></div></div>
+          <div class="field"><label for="f-extralabel">Extras are for</label><input id="f-extralabel" name="extraLabel" value="${esc(m.extraLabel)}" placeholder="magnets, screws, paint"></div>
+        </div>
+        <div class="live-cost"><span>Cost to print one <span class="muted" style="font-size:13px">(filament + electricity + printer runtime + extras)</span></span><b id="liveCost">—</b></div>
+        <span class="hint">Electricity and runtime rates are set on the <a href="#costs">Cost rates</a> page and apply to every model.</span>
+      </fieldset>
+
+      <fieldset><legend>Model files</legend>
+        <div class="drop" id="fileDrop" tabindex="0" role="button" aria-label="Add model files"><strong>Drop .stl, .3mf or .obj files here</strong><br>or click to choose. They're saved to Print Ledger / Model files in your Drive.</div>
+        <input type="file" id="fileInput" accept=".stl,.3mf,.obj" multiple hidden>
+        <ul class="files" id="fileList"></ul>
+      </fieldset>
+
+      <fieldset><legend>Photos</legend>
+        <div class="drop" id="photoDrop" tabindex="0" role="button" aria-label="Add photos"><strong>Drop photos here</strong><br>or click to choose. The first photo is the cover.</div>
+        <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+        <div class="photo-grid" id="photoGrid"></div>
+      </fieldset>
+
+      <div class="form-acts">
+        <span class="uploading" id="upStatus" style="margin-right:auto;align-self:center"></span>
+        <a class="btn" href="${back}">Cancel</a>
+        <button class="btn-primary" type="submit" id="saveBtn">${existing ? "Save changes" : "Add model"}</button>
+      </div>
+    </form>`;
+
+  const form = document.getElementById("editForm");
+  const liveCost = () => {
+    const fd = new FormData(form);
+    const c = costOf({grams: fd.get("grams"), printMinutes: num(fd.get("hours"))*60 + num(fd.get("minutes")), filamentPerKg: fd.get("filamentPerKg") === "" ? null : fd.get("filamentPerKg"), extraCost: fd.get("extraCost")});
+    document.getElementById("liveCost").textContent = money(c.total);
+  };
+  form.addEventListener("input", liveCost); liveCost();
+
+  const myEdit = edit;
+  const alive = () => edit === myEdit && document.getElementById("editForm") === form;
+  const status = () => { if (!alive()) return; document.getElementById("upStatus").textContent = myEdit.busy ? `Uploading ${myEdit.busy} file${myEdit.busy>1?"s":""} to Drive…` : ""; document.getElementById("saveBtn").disabled = myEdit.busy > 0; };
+  const drawFiles = () => { if (!alive()) return;
+    document.getElementById("fileList").innerHTML = myEdit.files.map((f,i) => `<li><span class="ext">${esc(f.ext)}</span><span class="fname" title="${esc(f.name)}">${esc(f.name)}</span><span class="fsize">${f.pending ? (f.pct||0) + "%" : fmtBytes(f.size||0)}</span>${f.pending ? "" : `<button type="button" class="btn-danger" data-rmf="${i}">Remove</button>`}</li>`).join("");
+  };
+  const drawPhotos = () => { if (!alive()) return;
+    const g = document.getElementById("photoGrid");
+    g.innerHTML = myEdit.photos.map((p,i) => `<div class="ph">${p.pending ? `<div class="uploading" style="display:grid;place-items:center;height:100%">Uploading…</div>` : `<img data-blob="${esc(p.id)}" alt="Photo ${i+1}">`}${i===0 && !p.pending ? `<span class="cover-tag">Cover</span>` : ""}${p.pending ? "" : `<div class="bar">${i ? `<button type="button" data-cov="${i}">Make cover</button>` : "<span></span>"}<button type="button" data-rmp="${i}">Remove</button></div>`}</div>`).join("");
+    hydrate(g);
+  };
+  drawFiles(); drawPhotos(); status();
+
+  document.getElementById("fileList").onclick = e => { const b = e.target.closest("[data-rmf]"); if (!b) return; const [f] = myEdit.files.splice(+b.dataset.rmf, 1); myEdit.removed.push(f.id); drawFiles(); };
+  document.getElementById("photoGrid").onclick = e => {
+    const r = e.target.closest("[data-rmp]"), c = e.target.closest("[data-cov]");
+    if (r){ const [p] = myEdit.photos.splice(+r.dataset.rmp, 1); myEdit.removed.push(p.id); drawPhotos(); }
+    if (c){ const [p] = myEdit.photos.splice(+c.dataset.cov, 1); myEdit.photos.unshift(p); drawPhotos(); }
+  };
+
+  const wireDrop = (zone, input, handler) => {
+    zone.onclick = () => input.click();
+    zone.onkeydown = e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); input.click(); } };
+    zone.ondragover = e => { e.preventDefault(); zone.classList.add("over"); };
+    zone.ondragleave = () => zone.classList.remove("over");
+    zone.ondrop = e => { e.preventDefault(); zone.classList.remove("over"); handler([...e.dataTransfer.files]); };
+    input.onchange = () => { handler([...input.files]); input.value = ""; };
+  };
+  wireDrop(document.getElementById("fileDrop"), document.getElementById("fileInput"), files => {
+    files.forEach(async file => {
+      const ext = extOf(file.name);
+      if (!["stl","3mf","obj"].includes(ext)){ toast(`${file.name} isn't an STL, 3MF or OBJ file.`); return; }
+      const entry = {name:file.name, size:file.size, ext, pending:true, pct:0};
+      myEdit.files.push(entry); myEdit.busy++; drawFiles(); status();
+      try {
+        entry.id = await uploadBlob(file, file.name, ids.files, MIME[ext], p => { entry.pct = p; drawFiles(); });
+        delete entry.pending; delete entry.pct; myEdit.dirtyUploads.push(entry.id); remember(entry.id, file);
+      } catch(e){ myEdit.files.splice(myEdit.files.indexOf(entry), 1); toast(`${file.name}: ${errMsg(e)}`); }
+      myEdit.busy--; drawFiles(); status();
+    });
+  });
+  wireDrop(document.getElementById("photoDrop"), document.getElementById("photoInput"), files => {
+    files.forEach(async file => {
+      if (!/^image\//.test(file.type)){ toast(`${file.name}: use a JPG, PNG, WebP or GIF photo.`); return; }
+      const entry = {pending:true}; myEdit.photos.push(entry); myEdit.busy++; drawPhotos(); status();
+      try {
+        const blob = await shrinkImage(file); const type = blob.type || file.type;
+        const name = blob === file ? file.name : file.name.replace(/\.[^.]+$/, "") + ".jpg";
+        entry.id = await uploadBlob(blob, name, ids.photos, type); delete entry.pending; myEdit.dirtyUploads.push(entry.id); remember(entry.id, blob);
+      } catch(e){ myEdit.photos.splice(myEdit.photos.indexOf(entry), 1); toast(`${file.name}: ${errMsg(e)}`); }
+      myEdit.busy--; drawPhotos(); status();
+    });
+  });
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(form); const name = String(fd.get("name")).trim();
+    if (!name){ toast("Give the model a name."); document.getElementById("f-name").focus(); return; }
+    let src = String(fd.get("sourceUrl")).trim();
+    if (src && !/^https?:\/\//i.test(src)) src = "https://" + src;
+    const now = new Date().toISOString();
+    const data = {
+      id: existing ? existing.id : newId(),
+      name, sourceUrl: src, description: String(fd.get("description")).trim(),
+      tags: String(fd.get("tags")).split(",").map(s => s.trim()).filter(Boolean),
+      grams: num(fd.get("grams")), printMinutes: num(fd.get("hours"))*60 + num(fd.get("minutes")),
+      material: fd.get("material"), color: String(fd.get("color")).trim(), diameter: fd.get("diameter"),
+      layerHeight: fd.get("layerHeight"), infill: fd.get("infill"), notes: String(fd.get("notes")).trim(),
+      filamentPerKg: fd.get("filamentPerKg") === "" ? null : num(fd.get("filamentPerKg")),
+      extraCost: num(fd.get("extraCost")), extraLabel: String(fd.get("extraLabel")).trim(),
+      photos: myEdit.photos.filter(p => !p.pending).map(p => ({id:p.id})),
+      files: myEdit.files.filter(f => !f.pending).map(f => ({id:f.id, name:f.name, size:f.size, ext:f.ext})),
+      createdAt: existing ? existing.createdAt : now, updatedAt: now,
+    };
+    const btn = document.getElementById("saveBtn"); btn.disabled = true; btn.textContent = "Saving to Drive…";
+    try {
+      await mutate(lib => { const i = lib.models.findIndex(x => x.id === data.id); if (i >= 0) lib.models[i] = data; else lib.models.push(data); });
+      myEdit.saved = true; trashFiles(myEdit.removed);
+      toast(existing ? "Changes saved to Drive" : "Model added to Drive");
+      location.hash = "model-" + data.id;
+    } catch(err){ toast(errMsg(err)); btn.disabled = false; btn.textContent = existing ? "Save changes" : "Add model"; }
+  };
+}
+
+/* ---------- cost rates ---------- */
+function renderCosts(){
+  const r = rates;
+  app.innerHTML = `
+    <div class="detail-head"><h2>Cost rates</h2></div>
+    <form class="edit" id="costForm" novalidate>
+      <fieldset><legend>Filament</legend>
+        <div class="row">
+          <div class="field"><label for="c-cur">Currency symbol</label><input id="c-cur" name="currency" maxlength="4" value="${esc(r.currency)}"></div>
+          <div class="field"><label for="c-kg">Default filament price</label><div class="unit pre"><span>${esc(r.currency)}</span><input id="c-kg" name="filamentPerKg" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(r.filamentPerKg)}"></div><span class="hint">Per 1 kg spool. A $22 spool of 1 kg → 22.</span></div>
+        </div>
+      </fieldset>
+      <fieldset><legend>Printer &amp; electricity</legend>
+        <div class="row">
+          <div class="field"><label for="c-w">Printer power draw</label><div class="unit"><input id="c-w" name="printerWatts" type="number" min="0" step="1" inputmode="numeric" value="${esc(r.printerWatts)}"><span>W</span></div><span class="hint">Average while printing. Most FDM printers run 100–350 W.</span></div>
+          <div class="field"><label for="c-kwh">Electricity price</label><div class="unit pre"><span>${esc(r.currency)}</span><input id="c-kwh" name="kwhRate" type="number" min="0" step="0.001" inputmode="decimal" value="${esc(r.kwhRate)}"></div><span class="hint">Per kWh, from your power bill.</span></div>
+          <div class="field"><label for="c-wear">Printer runtime cost</label><div class="unit pre"><span>${esc(r.currency)}</span><input id="c-wear" name="wearPerHour" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(r.wearPerHour)}"></div><span class="hint">Per hour: wear, nozzles, belts, the printer paying itself off. Example: $500 printer over 2,000 h = $0.25/h.</span></div>
+        </div>
+      </fieldset>
+      <fieldset><legend>Selling</legend>
+        <div class="field" style="max-width:260px"><label for="c-mk">Markup for suggested price</label><div class="unit"><input id="c-mk" name="markupPct" type="number" min="0" step="1" inputmode="numeric" value="${esc(r.markupPct)}"><span>%</span></div></div>
+      </fieldset>
+      <div class="panel"><h3>How one print is costed</h3><div class="formula" id="formula"></div></div>
+      <div class="form-acts"><button class="btn-primary" type="submit" id="saveRates">Save rates</button></div>
+    </form>`;
+  const form = document.getElementById("costForm");
+  const read = () => { const fd = new FormData(form); return {currency: String(fd.get("currency")).trim() || "$", filamentPerKg: num(fd.get("filamentPerKg")), printerWatts: num(fd.get("printerWatts")), kwhRate: num(fd.get("kwhRate")), wearPerHour: num(fd.get("wearPerHour")), markupPct: num(fd.get("markupPct"))}; };
+  const show = () => {
+    const x = read(); const c = x.currency; const f = v => esc(c) + v.toFixed(2);
+    const g = 100, h = 4; const fil = g/1000*x.filamentPerKg, el = h*x.printerWatts/1000*x.kwhRate, rt = h*x.wearPerHour;
+    document.getElementById("formula").innerHTML =
+      `filament    = grams ÷ 1000 × price per kg<br>electricity = hours × watts ÷ 1000 × price per kWh<br>runtime     = hours × runtime cost per hour<br>total       = filament + electricity + runtime + extras<br><br>` +
+      `<span class="muted">Example, 100 g over 4 h:</span><br>${f(fil)} + ${f(el)} + ${f(rt)} = <b style="color:var(--warm)">${f(fil+el+rt)}</b>`;
+  };
+  form.addEventListener("input", show); show();
+  form.onsubmit = async e => {
+    e.preventDefault(); const btn = document.getElementById("saveRates"); btn.disabled = true; btn.textContent = "Saving…";
+    try { const nr = read(); await mutate(lib => { lib.rates = nr; }); toast("Rates saved. Every model's cost is updated."); }
+    catch(err){ toast(errMsg(err)); }
+    btn.disabled = false; btn.textContent = "Save rates";
+  };
+}
+
+/* ---------- Drive & backup ---------- */
+function blobToB64(blob){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => { const s = fr.result; res(s.slice(s.indexOf(",") + 1)); }; fr.onerror = () => rej(fr.error); fr.readAsDataURL(blob); }); }
+function b64ToBlob(b64, type){ const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return new Blob([out], {type: type || ""}); }
+function renderBackup(){
+  let fileCount = 0, photoCount = 0, bytes = 0;
+  for (const m of models){ fileCount += (m.files||[]).length; photoCount += (m.photos||[]).length; for (const f of (m.files||[])) bytes += f.size || 0; }
+  app.innerHTML = `
+    <div class="detail-head"><h2>Drive &amp; backup</h2></div>
+    <div class="stack" style="max-width:760px">
+      <div class="panel">
+        <h3>Saved in your Google Drive</h3>
+        <p style="margin:0 0 10px;max-width:65ch">Everything lives in the <b>Print Ledger</b> folder in your Drive: <span class="mono">library.json</span> holds your models and rates, and your files and photos are in the <b>Model files</b> and <b>Photos</b> folders. Open this app's web address in any browser, connect the same Google account, and your library is there. Please don't rename or move files inside that folder.</p>
+        <p class="muted" style="margin:0 0 12px;font-size:14px">${models.length} models · ${fileCount} model files (${fmtBytes(bytes)}) · ${photoCount} photos</p>
+        <div class="backup-acts">
+          <a class="btn" href="https://drive.google.com/drive/folders/${esc(ids.root)}" target="_blank" rel="noopener">Open folder in Google Drive ↗</a>
+          <button id="signOut">Disconnect this browser</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Restore a backup from the offline version</h3>
+        <p style="margin:0 0 12px;max-width:65ch">Have a backup <span class="mono">.json</span> from the offline Print Ledger file? Restore it here to copy those models, files and photos into your Drive. Models already here stay as they are.</p>
+        <div class="backup-acts"><button class="btn-primary" id="importBtn">Choose backup file…</button><input type="file" id="importInput" accept=".json,application/json" hidden><span class="uploading" id="importStatus"></span></div>
+      </div>
+      <div class="panel">
+        <h3>Save an extra copy</h3>
+        <p style="margin:0 0 12px;max-width:65ch">Your Drive already keeps your library safe. If you also want a copy on your computer, this saves everything into one <span class="mono">.json</span> file. It can take a while if you have big model files.</p>
+        <div class="backup-acts"><button id="exportBtn">Save backup file</button><span class="uploading" id="exportStatus"></span></div>
+      </div>
+    </div>`;
+
+  document.getElementById("signOut").onclick = () => {
+    try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
+    token = null; try { sessionStorage.removeItem("pl-token"); } catch {}
+    state = "connect"; location.hash = ""; render(); toast("Disconnected. Your library is still safe in Google Drive.");
+  };
+  document.getElementById("exportBtn").onclick = async ev => {
+    const btn = ev.target, st = document.getElementById("exportStatus"); btn.disabled = true;
+    try {
+      const all = [...new Set(models.flatMap(blobIdsOf))];
+      const parts = ['{"app":"print-ledger","version":2,"exportedAt":', JSON.stringify(new Date().toISOString()), ',"rates":', JSON.stringify(rates), ',"models":', JSON.stringify(models), ',"blobs":{'];
+      let n = 0;
+      for (const id of all){
+        st.textContent = `Fetching file ${++n} of ${all.length}…`;
+        const b = await getBlob(id);
+        parts.push((n > 1 ? "," : "") + JSON.stringify(id) + ':{"type":' + JSON.stringify(b.type || "") + ',"data":"' + await blobToB64(b) + '"}');
+      }
+      parts.push("}}");
+      saveFile(new Blob(parts, {type:"application/json"}), `print-ledger-backup-${new Date().toISOString().slice(0,10)}.json`);
+      st.textContent = ""; toast("Backup saved to your downloads");
+    } catch(e){ st.textContent = ""; toast(errMsg(e)); }
+    btn.disabled = false;
+  };
+  const inp = document.getElementById("importInput");
+  document.getElementById("importBtn").onclick = () => inp.click();
+  inp.onchange = async () => {
+    const file = inp.files[0]; inp.value = ""; if (!file) return;
+    const btn = document.getElementById("importBtn"), st = document.getElementById("importStatus"); btn.disabled = true;
+    try {
+      st.textContent = "Reading backup…";
+      const data = JSON.parse(await file.text());
+      if (data.app !== "print-ledger" || !Array.isArray(data.models)) throw new Error("That file isn't a Print Ledger backup.");
+      const have = new Set(models.map(m => m.id));
+      const incoming = data.models.filter(m => m && m.id && !have.has(m.id) && !m.example);
+      const blobs = data.blobs || {}; const map = {}; let n = 0;
+      const total = incoming.reduce((a,m) => a + blobIdsOf(m).length, 0);
+      for (const m of incoming){
+        for (const p of (m.photos||[])){ st.textContent = `Uploading ${++n} of ${total} to Drive…`; const b = blobs[p.id]; if (!b) continue; const blob = b64ToBlob(b.data, b.type); map[p.id] = await uploadBlob(blob, (m.name || "photo") + " photo.jpg", ids.photos, b.type || "image/jpeg"); remember(map[p.id], blob); }
+        for (const f of (m.files||[])){ st.textContent = `Uploading ${++n} of ${total} to Drive…`; const b = blobs[f.id]; if (!b) continue; const blob = b64ToBlob(b.data, b.type); map[f.id] = await uploadBlob(blob, f.name, ids.files, MIME[f.ext] || "application/octet-stream"); remember(map[f.id], blob); }
+      }
+      const clean = incoming.map(m => ({...m, example: undefined,
+        photos: (m.photos||[]).filter(p => map[p.id]).map(p => ({id: map[p.id]})),
+        files: (m.files||[]).filter(f => map[f.id]).map(f => ({...f, id: map[f.id]}))}));
+      st.textContent = "Saving library…";
+      await mutate(lib => { const wasEmpty = !lib.models.length; lib.models.push(...clean); if (data.rates && wasEmpty) lib.rates = {...DEFAULT_RATES, ...data.rates}; });
+      st.textContent = ""; toast(`Restored ${clean.length} model${clean.length === 1 ? "" : "s"} to your Drive`);
+      location.hash = "";
+    } catch(e){ st.textContent = ""; toast(e instanceof SyntaxError ? "That file isn't a Print Ledger backup." : errMsg(e)); }
+    btn.disabled = false;
+  };
+}
+
+/* ---------- start ---------- */
+async function start(){
+  if (location.protocol === "file:" || !clientId){ state = "connect"; render(); return; }
+  state = "connect"; render();
+  gisReady = await waitForGIS();
+  if (!gisReady){ gisFailed = true; render(); return; }
+  setupTokenClient();
+  if (token) loadLibrary(); else render();
+}
+start();
+})();
+</script>
+</body>
+</html>
